@@ -1,30 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import {
-  ChevronDown,
-  Upload,
-  X,
-  FileText,
-  Phone,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { PhoneInput } from "@/components/ui/phone-input";
-import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldTitle,
-} from "@/components/ui/field";
+import { Check, ChevronDown, FileText, Phone, Upload, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -38,17 +14,45 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { registerAttachment, uploadFile } from "@/lib/api/attachments";
+import { useCallback, useRef, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Tag } from "@/components/ui/tag";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { useLanguages } from "@/hooks/use-languages";
+import { useModels } from "@/hooks/use-models";
+import { usePrompts } from "@/hooks/use-prompts";
+import { useVoices } from "@/hooks/use-voices";
 
 interface UploadedFile {
   name: string;
   size: number;
   file: File;
+  status: "uploading" | "success" | "error";
+  notAcceptedExt?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -88,9 +92,7 @@ function CollapsibleSection({
               </div>
               <div className="flex items-center gap-2">
                 {badge !== undefined && badge > 0 && (
-                  <Badge variant="destructive">
-                    {badge} required
-                  </Badge>
+                  <Badge variant="destructive">{badge} required</Badge>
                 )}
                 <ChevronDown
                   className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
@@ -139,13 +141,17 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [model, setModel] = useState(initialData?.model ?? "");
   const [latency, setLatency] = useState([initialData?.latency ?? 0.5]);
   const [speed, setSpeed] = useState([initialData?.speed ?? 110]);
-  const [description, setDescription] = useState(initialData?.description ?? "");
+  const [description, setDescription] = useState(
+    initialData?.description ?? "",
+  );
 
   // Call Script
   const [callScript, setCallScript] = useState(initialData?.callScript ?? "");
 
   // Service/Product Description
-  const [serviceDescription, setServiceDescription] = useState(initialData?.serviceDescription ?? "");
+  const [serviceDescription, setServiceDescription] = useState(
+    initialData?.serviceDescription ?? "",
+  );
 
   // Reference Data
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -158,10 +164,21 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testGender, setTestGender] = useState("");
   const [testPhone, setTestPhone] = useState("");
 
+  // Task: Basic Settings
+  const { languages } = useLanguages();
+  const { voices } = useVoices();
+  const { prompts } = usePrompts();
+  const { models } = useModels();
+
   // Badge counts for required fields
-  const basicSettingsMissing = [agentName, callType, language, voice, prompt, model].filter(
-    (v) => !v
-  ).length;
+  const basicSettingsMissing = [
+    agentName,
+    callType,
+    language,
+    voice,
+    prompt,
+    model,
+  ].filter((v) => !v).length;
 
   // File upload handlers
   const ACCEPTED_TYPES = [
@@ -175,20 +192,62 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   ];
 
   const handleFiles = useCallback(
-    (files: FileList | null) => {
+    async (files: FileList | null) => {
       if (!files) return;
-      const newFiles: UploadedFile[] = [];
+      let newFiles: UploadedFile[] = [];
+
+      // TASK2: add files first, indicating uploading status
+      const filesArray = Array.from(files);
+      newFiles = filesArray.map((file) => ({
+        name: file.name,
+        size: file.size,
+        file,
+        status: "uploading",
+      }));
+      setUploadedFiles((prev) => [...prev, ...newFiles]);
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+
+        // TASK2: upload each file to the signed url
         const ext = "." + file.name.split(".").pop()?.toLowerCase();
         if (ACCEPTED_TYPES.includes(ext)) {
-          newFiles.push({ name: file.name, size: file.size, file });
+          try {
+            const fileUpload = await uploadFile(file);
+
+            const attachmentResponse = await registerAttachment(
+              fileUpload.key,
+              file.name,
+              file.size,
+              file.type,
+            ); // TASK3: id required for saving the agent options
+            console.log(attachmentResponse);
+
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.file === file ? { ...f, status: "success" } : f,
+              ),
+            );
+          } catch {
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.file === file ? { ...f, status: "error" } : f,
+              ),
+            );
+          }
+        } else {
+          setUploadedFiles((prev) =>
+            prev.map((f) =>
+              f.file === file
+                ? { ...f, status: "error", notAcceptedExt: true }
+                : f,
+            ),
+          );
         }
       }
-      setUploadedFiles((prev) => [...prev, ...newFiles]);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [],
   );
 
   const removeFile = (index: number) => {
@@ -263,8 +322,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select call type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inbound">Inbound (Receive Calls)</SelectItem>
-                    <SelectItem value="outbound">Outbound (Make Calls)</SelectItem>
+                    <SelectItem value="inbound">
+                      Inbound (Receive Calls)
+                    </SelectItem>
+                    <SelectItem value="outbound">
+                      Outbound (Make Calls)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -278,10 +341,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="ar">Arabic</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
+                    {/* // TASK: write fetched languages */}
+                    {languages.map((lang) => (
+                      <SelectItem key={lang.id} value={lang.code}>
+                        {lang.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -295,12 +360,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select voice" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="alloy">Alloy</SelectItem>
-                    <SelectItem value="echo">Echo</SelectItem>
-                    <SelectItem value="fable">Fable</SelectItem>
-                    <SelectItem value="onyx">Onyx</SelectItem>
-                    <SelectItem value="nova">Nova</SelectItem>
-                    <SelectItem value="shimmer">Shimmer</SelectItem>
+                    {/* // TASK: write fetched voices */}
+                    {voices.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        {voice.name} <Tag tag={voice.tag} />
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -314,10 +379,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select prompt" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="default">Default Prompt</SelectItem>
-                    <SelectItem value="sales">Sales Prompt</SelectItem>
-                    <SelectItem value="support">Support Prompt</SelectItem>
-                    <SelectItem value="custom">Custom Prompt</SelectItem>
+                    {/* // TASK: write fetched prompts */}
+                    {prompts.map((prompt) => (
+                      <SelectItem key={prompt.id} value={prompt.id}>
+                        {prompt.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -331,9 +398,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pro">Pro</SelectItem>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="flex">Flex</SelectItem>
+                    {/* // TASK: write fetched models */}
+                    {models.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -369,7 +439,6 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   </div>
                 </div>
               </div>
-
             </div>
           </CollapsibleSection>
 
@@ -435,6 +504,8 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   multiple
                   accept={ACCEPTED_TYPES.join(",")}
                   onChange={(e) => handleFiles(e.target.files)}
+                  // TASK: each input has to be labled with Next.js, and adding title sovles the warning msg
+                  title="hidden upload input"
                 />
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="mt-2 text-sm font-medium">
@@ -461,11 +532,31 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       className="flex items-center justify-between rounded-md border px-3 py-2"
                     >
                       <div className="flex items-center gap-2 min-w-0">
+                        {/* // TASK2: display checkmark if file is uploaded successfully or X mark if not */}
+                        {f.status === "uploading" && <Spinner />}
+                        {f.status === "success" && (
+                          <Check
+                            className="text-green-600 h-4 w-4"
+                            aria-label="uploaded successfully"
+                          />
+                        )}
+                        {f.status === "error" && (
+                          <X
+                            className="text-red-600 h-4 w-4"
+                            aria-label="Uploading failed, try again"
+                          />
+                        )}
                         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="text-sm truncate">{f.name}</span>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {formatFileSize(f.size)}
                         </span>
+                        {/* // TASK2: Display message for unsupported files types */}
+                        {f.notAcceptedExt && (
+                          <span className="ml-3 text-red-600 text-xs">
+                            Unsupported File Type
+                          </span>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
@@ -498,7 +589,8 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   <FieldContent>
                     <FieldTitle>Allow hang up</FieldTitle>
                     <FieldDescription>
-                      Select if you would like to allow the agent to hang up the call
+                      Select if you would like to allow the agent to hang up the
+                      call
                     </FieldDescription>
                   </FieldContent>
                   <Switch id="switch-hangup" />
@@ -509,7 +601,8 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   <FieldContent>
                     <FieldTitle>Allow callback</FieldTitle>
                     <FieldDescription>
-                      Select if you would like to allow the agent to make callbacks
+                      Select if you would like to allow the agent to make
+                      callbacks
                     </FieldDescription>
                   </FieldContent>
                   <Switch id="switch-callback" />
@@ -528,7 +621,6 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
               </FieldLabel>
             </FieldGroup>
           </CollapsibleSection>
-
         </div>
 
         {/* Right Column — Sticky Test Call Card */}

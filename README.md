@@ -1,5 +1,40 @@
 # Frontend Developer Skills Test
 
+## Task Implementation - Abdulrahman Ismael
+
+### overview
+
+The repository contains the implementation of the Frontend Task Integration For Create Agent page of the Olimi AI dashboard.
+
+### How to run
+
+1. install dependencies: `npm install`
+2. start the api server: `npm run mock-api`
+3. start the development server: `npm run dev`
+
+### Impelementation
+
+### Steps
+
+- Task 1
+  1. Prepare the API Responses Typescript types/interfaces `src/types/basic-settings.ts`
+  2. Build the API calls in `src/api/basic-settings.ts`
+  3. Create a hook for each setting to get the data
+  4. Modify the static options and display the fetched options in `agent-form.tsx`
+  5. Optimization: Create `useData` hook as a single source of fetching
+
+- Task 2
+  1. Prepare the API calls Typescript types/interfaces `src/types/attachments.ts`
+  2. Build the API calls in `src/api/attachments.ts`
+  3. Add logic in `agent-form.tsx` to uplaod each file in the list
+  4. Improvements for UI
+     1. add the files first indicating the uploading status then uploading the file and modifying the status with success or fail
+     2. handling uploading unsupported file type, and displaying error message
+
+### Future Possible Improvements
+
+---
+
 ## Overview
 
 This project contains a **Create Agent** page from the Olimi AI dashboard. The UI is fully built but entirely static — all form dropdowns are hardcoded, file uploads don't persist, and the save/test-call buttons are non-functional.
@@ -110,8 +145,16 @@ Returns available prompt templates.
 
 ```json
 [
-  { "id": "default", "name": "Default Prompt", "description": "General-purpose prompt" },
-  { "id": "sales", "name": "Sales Prompt", "description": "Optimized for sales" }
+  {
+    "id": "default",
+    "name": "Default Prompt",
+    "description": "General-purpose prompt"
+  },
+  {
+    "id": "sales",
+    "name": "Sales Prompt",
+    "description": "Optimized for sales"
+  }
 ]
 ```
 
@@ -121,8 +164,16 @@ Returns available AI models.
 
 ```json
 [
-  { "id": "pro", "name": "Pro", "description": "Highest quality, lowest latency" },
-  { "id": "standard", "name": "Standard", "description": "Balanced quality and cost" }
+  {
+    "id": "pro",
+    "name": "Pro",
+    "description": "Highest quality, lowest latency"
+  },
+  {
+    "id": "standard",
+    "name": "Standard",
+    "description": "Balanced quality and cost"
+  }
 ]
 ```
 
@@ -319,14 +370,14 @@ These are optional but will positively impact your evaluation:
 
 ## Evaluation Criteria
 
-| Area | What we look for |
-|------|-----------------|
-| **Code quality** | Clean, readable, well-organized code |
-| **React patterns** | Proper use of hooks, state management, component composition |
-| **API integration** | Correct HTTP methods, error handling, loading states |
-| **TypeScript** | Proper typing, interfaces, type safety |
-| **Error handling** | Graceful failures, user feedback, edge cases |
-| **Attention to detail** | Following instructions, matching existing code style |
+| Area                    | What we look for                                             |
+| ----------------------- | ------------------------------------------------------------ |
+| **Code quality**        | Clean, readable, well-organized code                         |
+| **React patterns**      | Proper use of hooks, state management, component composition |
+| **API integration**     | Correct HTTP methods, error handling, loading states         |
+| **TypeScript**          | Proper typing, interfaces, type safety                       |
+| **Error handling**      | Graceful failures, user feedback, edge cases                 |
+| **Attention to detail** | Following instructions, matching existing code style         |
 
 ## Time Expectation
 
