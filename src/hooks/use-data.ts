@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 const useData = <T>(getData: () => Promise<T[]>) => {
   const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ const useData = <T>(getData: () => Promise<T[]>) => {
       try {
         const response = await getData();
         setData(response);
-      } catch (error) {
+      } catch {
         setError(true);
         console.error("Something went wrong, request failed!");
       } finally {
@@ -24,7 +24,7 @@ const useData = <T>(getData: () => Promise<T[]>) => {
     };
 
     fetchData();
-  }, []);
+  }, [getData]);
 
   return { data, loading, error };
 };

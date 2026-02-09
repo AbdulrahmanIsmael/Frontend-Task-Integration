@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { registerAttachment, uploadFile } from "@/lib/api/attachments";
-import { Dispatch, SetStateAction, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import { I_saveAgentBody } from "@/lib/types/agents";
 import { saveAgent, updateAgent } from "@/lib/api/agents";
 import { I_testCallBody } from "@/lib/types/test-call";
 import { makeTestCall } from "@/lib/api/test-call";
+import { setToast, validateForm } from "@/lib/utils";
 
 interface UploadedFile {
   name: string;
@@ -183,11 +184,23 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testCall, setTestCall] = useState<boolean>(false);
   const [callStatus, setCallStatus] = useState<string>("");
 
-  // Task: Basic Settings
-  const { languages } = useLanguages();
-  const { voices } = useVoices();
-  const { prompts } = usePrompts();
-  const { models } = useModels();
+  // BONUS: handling error for saving agent
+  const [saveError, setSaveError] = useState<string | null>("");
+  const [isFilled, setIsFilled] = useState({
+    name: true,
+    callType: true,
+    language: true,
+    voice: true,
+    prompt: true,
+    model: true,
+    phone: true,
+  });
+
+  // TASK: Basic Settings
+  const { languages, langLoading } = useLanguages();
+  const { voices, voicesLoading } = useVoices();
+  const { prompts, promptsLoading } = usePrompts();
+  const { models, modelsLoading } = useModels();
 
   // Badge counts for required fields
   const basicSettingsMissing = [
@@ -213,7 +226,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   // TASK4: Collected form data
   const formData: I_saveAgentBody = {
     name: agentName || null,
-    description: description || null,
+    description,
     callType: callType || null,
     language: language || null,
     voice: voice || null,
@@ -221,8 +234,8 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     model: model || null,
     latency: latency[0],
     speed: speed[0],
-    callScript: callScript || null,
-    serviceDescription: serviceDescription || null,
+    callScript,
+    serviceDescription,
     attachments,
     tools: {
       allowCallback,
@@ -319,25 +332,18 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     handleFiles(e.dataTransfer.files);
   };
 
-  const handleToast = (
-    setState: Dispatch<SetStateAction<boolean>>,
-    milliseconds: number,
-  ) => {
-    setState(true);
-    setTimeout(() => setState(false), milliseconds);
-  };
-
   const handleSaveAgent = async (
     e: React.MouseEvent | null,
     toast: boolean = true,
   ) => {
+    if (!validateForm(formData, setIsFilled, setSaveError)) return "0";
     const agentResponse = agentId
       ? await updateAgent(formData, agentId)
       : await saveAgent(formData);
 
     if (toast) {
       setTestCall(false);
-      handleToast(setSuccessToast, 2500);
+      setToast(setSuccessToast, 2500);
     }
 
     setAgentId(agentResponse.id);
@@ -345,20 +351,22 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   };
 
   const handleTestCall = async () => {
+    if (!validateForm(formData, setIsFilled, setSaveError, true, testCallData))
+      return;
     if (!agentId) {
       const newAgentId = await handleSaveAgent(null, false);
       const testCallResponse = await makeTestCall(testCallData, newAgentId);
       if (testCallResponse.success) {
         setCallStatus(testCallResponse.status);
         setSuccessToast(false);
-        handleToast(setTestCall, 2500);
+        setToast(setTestCall, 2500);
       }
     } else {
       const testCallResponse = await makeTestCall(testCallData, agentId);
       if (testCallResponse.success) {
         setCallStatus(testCallResponse.status);
         setSuccessToast(false);
-        handleToast(setTestCall, 2500);
+        setToast(setTestCall, 2500);
       }
     }
   };
@@ -394,8 +402,16 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   id="agent-name"
                   placeholder="e.g. Sales Assistant"
                   value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
+                  onChange={(e) => {
+                    setIsFilled((prev) => ({ ...prev, name: true }));
+                    setAgentName(e.target.value);
+                  }}
                 />
+                {!isFilled.name && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please write the agent name!
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -412,7 +428,13 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                 <Label>
                   Call Type <span className="text-destructive">*</span>
                 </Label>
-                <Select value={callType} onValueChange={setCallType}>
+                <Select
+                  value={callType}
+                  onValueChange={(value) => {
+                    setIsFilled((prev) => ({ ...prev, callType: true }));
+                    setCallType(value);
+                  }}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select call type" />
                   </SelectTrigger>
@@ -425,82 +447,147 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {!isFilled.callType && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please select the call type!
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>
                   Language <span className="text-destructive">*</span>
                 </Label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* // TASK: write fetched languages */}
-                    {languages.map((lang) => (
-                      <SelectItem key={lang.id} value={lang.code}>
-                        {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {langLoading ? (
+                  <Spinner className="h-8 w-8 mx-auto" />
+                ) : (
+                  <Select
+                    value={language}
+                    onValueChange={(value) => {
+                      setIsFilled((prev) => ({ ...prev, language: true }));
+                      setLanguage(value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* // TASK: write fetched languages */}
+                      {languages.map((lang) => (
+                        <SelectItem key={lang.id} value={lang.code}>
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isFilled.language && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please select the language!
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>
                   Voice <span className="text-destructive">*</span>
                 </Label>
-                <Select value={voice} onValueChange={setVoice}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* // TASK: write fetched voices */}
-                    {voices.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        {voice.name} <Tag tag={voice.tag} />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {voicesLoading ? (
+                  <Spinner className="h-8 w-8 mx-auto" />
+                ) : (
+                  <Select
+                    value={voice}
+                    onValueChange={(value) => {
+                      setIsFilled((prev) => ({ ...prev, voice: true }));
+                      setVoice(value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* // TASK: write fetched voices */}
+                      {voices.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          {voice.name} <Tag tag={voice.tag} />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isFilled.voice && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please select the voice!
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>
                   Prompt <span className="text-destructive">*</span>
                 </Label>
-                <Select value={prompt} onValueChange={setPrompt}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select prompt" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* // TASK: write fetched prompts */}
-                    {prompts.map((prompt) => (
-                      <SelectItem key={prompt.id} value={prompt.id}>
-                        {prompt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {promptsLoading ? (
+                  <Spinner className="h-8 w-8 mx-auto" />
+                ) : (
+                  <Select
+                    value={prompt}
+                    onValueChange={(value) => {
+                      setIsFilled((prev) => ({ ...prev, prompt: true }));
+                      setPrompt(value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select prompt" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* // TASK: write fetched prompts */}
+                      {prompts.map((prompt) => (
+                        <SelectItem key={prompt.id} value={prompt.id}>
+                          {prompt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isFilled.prompt && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please select the prompt!
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>
                   Model <span className="text-destructive">*</span>
                 </Label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* // TASK: write fetched models */}
-                    {models.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        {model.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {modelsLoading ? (
+                  <Spinner className="h-8 w-8 mx-auto" />
+                ) : (
+                  <Select
+                    value={model}
+                    onValueChange={(value) => {
+                      setIsFilled((prev) => ({ ...prev, model: true }));
+                      setModel(value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* // TASK: write fetched models */}
+                      {models.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isFilled.model && (
+                  <span className="text-xs text-red-600 font-medium">
+                    Please select the call model!
+                  </span>
+                )}
               </div>
 
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -787,9 +874,17 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <PhoneInput
                       defaultCountry="EG"
                       value={testPhone}
-                      onChange={(value) => setTestPhone(value)}
+                      onChange={(value) => {
+                        setIsFilled((prev) => ({ ...prev, phone: true }));
+                        setTestPhone(value);
+                      }}
                       placeholder="Enter phone number"
                     />
+                    {!isFilled.phone && (
+                      <span className="text-xs text-red-600 font-medium">
+                        Please write the phone number!
+                      </span>
+                    )}
                   </div>
 
                   <Button
@@ -820,6 +915,13 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       >
         <Check className="text-green-800 border border-green-800 p-0.5 rounded-4xl" />{" "}
         Agent Saved Successfully
+      </span>
+
+      <span
+        className={`${!saveError && "-translate-y-50"} flex items-center gap-3 fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium px-4 py-2 shadow-md transition ease duration-500`}
+      >
+        <X className="text-red-800 border border-red-800 p-0.5 rounded-4xl" />{" "}
+        {saveError}
       </span>
 
       <span

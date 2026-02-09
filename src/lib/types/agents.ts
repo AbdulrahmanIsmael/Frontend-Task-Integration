@@ -18,6 +18,16 @@ export interface I_saveAgentBody {
   };
 }
 
+export interface I_formValidate {
+  name: boolean;
+  callType: boolean;
+  language: boolean;
+  voice: boolean;
+  prompt: boolean;
+  model: boolean;
+  phone: boolean;
+}
+
 export interface I_saveAgentResponse {
   id: string;
   name: string;
