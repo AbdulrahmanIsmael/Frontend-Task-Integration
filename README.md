@@ -9,8 +9,9 @@ The repository contains the implementation of the Frontend Task Integration For 
 ### How to run
 
 1. install dependencies: `npm install`
-2. start the api server: `npm run mock-api`
-3. start the development server: `npm run dev`
+2. setup environment : `cp .env.example .env.local`
+3. start the api server: `npm run mock-api`
+4. start the development server: `npm run dev`
 
 ### Steps
 
