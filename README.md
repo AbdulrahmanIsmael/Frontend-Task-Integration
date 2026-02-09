@@ -27,12 +27,19 @@ The repository contains the implementation of the Frontend Task Integration For 
   1. Prepare the API calls Typescript types/interfaces `src/types/attachments.ts`
   2. Build the API calls in `src/api/attachments.ts`
   3. Add logic in `agent-form.tsx` to uplaod each file in the list
-  4. Improvements for UI
+  4. Improvements
      1. add the files first indicating the uploading status then uploading the file and modifying the status with success or fail
      2. handling uploading unsupported file type, and displaying error message
 
 - Task 3
-  1. Prepare API calls Typescript types/interfaces `src/types/agent.ts`
+  1. Prepare API calls Typescript types/interfaces `src/types/agents.ts`
+  2. Build the API calls functionality in `src/api/agents.ts`
+  3. Impelement saving/updating agent
+
+- Task 4
+  1. Prepare API calls Typescript types/interfaces `src/types/test-call.ts`
+  2. Build the API calls functionality in `src/api/test-call.ts`
+  3. Impelement checking agent saved status and sending a test call
 
 ### Future Possible Improvements
 

@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { registerAttachment, uploadFile } from "@/lib/api/attachments";
-import { useCallback, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useCallback, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,8 @@ import { usePrompts } from "@/hooks/use-prompts";
 import { useVoices } from "@/hooks/use-voices";
 import { I_saveAgentBody } from "@/lib/types/agents";
 import { saveAgent, updateAgent } from "@/lib/api/agents";
+import { I_testCallBody } from "@/lib/types/test-call";
+import { makeTestCall } from "@/lib/api/test-call";
 
 interface UploadedFile {
   name: string;
@@ -136,24 +138,28 @@ interface AgentFormProps {
 export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [agentId, setAgentId] = useState<string | null>(null);
   // Form state — initialized from initialData when provided
-  const [agentName, setAgentName] = useState(initialData?.agentName ?? "");
-  const [callType, setCallType] = useState(initialData?.callType ?? "");
-  const [language, setLanguage] = useState(initialData?.language ?? "");
-  const [voice, setVoice] = useState(initialData?.voice ?? "");
-  const [prompt, setPrompt] = useState(initialData?.prompt ?? "");
-  const [model, setModel] = useState(initialData?.model ?? "");
+  const [agentName, setAgentName] = useState<string>(
+    initialData?.agentName ?? "",
+  );
+  const [callType, setCallType] = useState<string>(initialData?.callType ?? "");
+  const [language, setLanguage] = useState<string>(initialData?.language ?? "");
+  const [voice, setVoice] = useState<string>(initialData?.voice ?? "");
+  const [prompt, setPrompt] = useState<string>(initialData?.prompt ?? "");
+  const [model, setModel] = useState<string>(initialData?.model ?? "");
   const [latency, setLatency] = useState([initialData?.latency ?? 0.5]);
   const [speed, setSpeed] = useState([initialData?.speed ?? 110]);
-  const [description, setDescription] = useState(
+  const [description, setDescription] = useState<string>(
     initialData?.description ?? "",
   );
   const [attachments, setAttachments] = useState<string[]>([]);
 
   // Call Script
-  const [callScript, setCallScript] = useState(initialData?.callScript ?? "");
+  const [callScript, setCallScript] = useState<string>(
+    initialData?.callScript ?? "",
+  );
 
   // Service/Product Description
-  const [serviceDescription, setServiceDescription] = useState(
+  const [serviceDescription, setServiceDescription] = useState<string>(
     initialData?.serviceDescription ?? "",
   );
 
@@ -163,17 +169,19 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Test Call
-  const [testFirstName, setTestFirstName] = useState("");
-  const [testLastName, setTestLastName] = useState("");
-  const [testGender, setTestGender] = useState("");
-  const [testPhone, setTestPhone] = useState("");
+  const [testFirstName, setTestFirstName] = useState<string>("");
+  const [testLastName, setTestLastName] = useState<string>("");
+  const [testGender, setTestGender] = useState<string>("");
+  const [testPhone, setTestPhone] = useState<string>("");
 
   // TASK3: Tools
   const [allowHangUp, setAllowHangUp] = useState<boolean>(false);
   const [allowCallback, setAllowCallback] = useState<boolean>(false);
   const [liveTransfer, setLiveTransfer] = useState<boolean>(false);
 
-  const [successToast, setSuccessToast] = useState(false);
+  const [successToast, setSuccessToast] = useState<boolean>(false);
+  const [testCall, setTestCall] = useState<boolean>(false);
+  const [callStatus, setCallStatus] = useState<string>("");
 
   // Task: Basic Settings
   const { languages } = useLanguages();
@@ -202,25 +210,33 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     ".xls",
   ];
 
-  // Collected form data
+  // TASK4: Collected form data
   const formData: I_saveAgentBody = {
-    name: agentName,
-    description,
-    callType,
-    language,
-    voice,
-    prompt,
-    model,
+    name: agentName || null,
+    description: description || null,
+    callType: callType || null,
+    language: language || null,
+    voice: voice || null,
+    prompt: prompt || null,
+    model: model || null,
     latency: latency[0],
     speed: speed[0],
-    callScript,
-    serviceDescription,
+    callScript: callScript || null,
+    serviceDescription: serviceDescription || null,
     attachments,
     tools: {
       allowCallback,
       allowHangUp,
       liveTransfer,
     },
+  };
+
+  // TASK4: Test Call form data
+  const testCallData: I_testCallBody = {
+    firstName: testFirstName,
+    lastName: testLastName,
+    gender: testGender,
+    phoneNumber: testPhone,
   };
 
   const handleFiles = useCallback(
@@ -303,22 +319,48 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     handleFiles(e.dataTransfer.files);
   };
 
-  const handleToast = (milliseconds: number) => {
-    setSuccessToast(true);
-    setTimeout(() => setSuccessToast(false), milliseconds);
+  const handleToast = (
+    setState: Dispatch<SetStateAction<boolean>>,
+    milliseconds: number,
+  ) => {
+    setState(true);
+    setTimeout(() => setState(false), milliseconds);
   };
 
-  const handleSaveAgent = async () => {
+  const handleSaveAgent = async (
+    e: React.MouseEvent | null,
+    toast: boolean = true,
+  ) => {
     const agentResponse = agentId
       ? await updateAgent(formData, agentId)
       : await saveAgent(formData);
 
-    handleToast(2500);
-
-    console.log(agentResponse);
-    console.log(agentId);
+    if (toast) {
+      setTestCall(false);
+      handleToast(setSuccessToast, 2500);
+    }
 
     setAgentId(agentResponse.id);
+    return agentResponse.id;
+  };
+
+  const handleTestCall = async () => {
+    if (!agentId) {
+      const newAgentId = await handleSaveAgent(null, false);
+      const testCallResponse = await makeTestCall(testCallData, newAgentId);
+      if (testCallResponse.success) {
+        setCallStatus(testCallResponse.status);
+        setSuccessToast(false);
+        handleToast(setTestCall, 2500);
+      }
+    } else {
+      const testCallResponse = await makeTestCall(testCallData, agentId);
+      if (testCallResponse.success) {
+        setCallStatus(testCallResponse.status);
+        setSuccessToast(false);
+        handleToast(setTestCall, 2500);
+      }
+    }
   };
 
   const heading = mode === "create" ? "Create Agent" : "Edit Agent";
@@ -750,7 +792,10 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     />
                   </div>
 
-                  <Button className="w-full">
+                  <Button
+                    className="w-full cursor-pointer"
+                    onClick={handleTestCall}
+                  >
                     <Phone className="mr-2 h-4 w-4" />
                     Start Test Call
                   </Button>
@@ -775,6 +820,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       >
         <Check className="text-green-800 border border-green-800 p-0.5 rounded-4xl" />{" "}
         Agent Saved Successfully
+      </span>
+
+      <span
+        className={`${!testCall && "-translate-y-50"} fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-medium px-4 py-2 shadow-md transition ease duration-500`}
+      >
+        {callStatus}
       </span>
     </div>
   );

@@ -1,15 +1,15 @@
 export interface I_saveAgentBody {
-  name: string;
-  description: string;
-  callType: string;
-  language: string;
-  voice: string;
-  prompt: string;
-  model: string;
+  name: string | null;
+  description: string | null;
+  callType: string | null;
+  language: string | null;
+  voice: string | null;
+  prompt: string | null;
+  model: string | null;
   latency: number;
   speed: number;
-  callScript: string;
-  serviceDescription: string;
+  callScript: string | null;
+  serviceDescription: string | null;
   attachments: string[];
   tools: {
     allowHangUp: boolean;
