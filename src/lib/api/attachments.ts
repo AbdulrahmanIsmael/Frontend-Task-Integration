@@ -1,4 +1,3 @@
-// TASK2: write task2 api calls
 import {
   I_registerAttachmentResponse,
   I_signedURLResponse,

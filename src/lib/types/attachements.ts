@@ -1,5 +1,3 @@
-// TASK2 : write types/interfaces for the api calls
-
 export interface I_signedURLResponse {
   key: string;
   signedUrl: string;

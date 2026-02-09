@@ -175,7 +175,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testGender, setTestGender] = useState<string>("");
   const [testPhone, setTestPhone] = useState<string>("");
 
-  // TASK3: Tools
+  // Tools
   const [allowHangUp, setAllowHangUp] = useState<boolean>(false);
   const [allowCallback, setAllowCallback] = useState<boolean>(false);
   const [liveTransfer, setLiveTransfer] = useState<boolean>(false);
@@ -184,8 +184,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testCall, setTestCall] = useState<boolean>(false);
   const [callStatus, setCallStatus] = useState<string>("");
 
-  // BONUS: handling error for saving agent
-  const [saveError, setSaveError] = useState<string | null>("");
+  // handling error for saving agent
+  const [saveError, setSaveError] = useState<string | null>(
+    "Something went wrong!",
+  );
+  const [isSaveError, setIsSaveError] = useState<boolean>(false);
   const [isFilled, setIsFilled] = useState({
     name: true,
     callType: true,
@@ -196,7 +199,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     phone: true,
   });
 
-  // TASK: Basic Settings
+  // Basic Settings
   const { languages, langLoading } = useLanguages();
   const { voices, voicesLoading } = useVoices();
   const { prompts, promptsLoading } = usePrompts();
@@ -223,7 +226,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     ".xls",
   ];
 
-  // TASK4: Collected form data
+  // Collected form data
   const formData: I_saveAgentBody = {
     name: agentName || null,
     description,
@@ -244,7 +247,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     },
   };
 
-  // TASK4: Test Call form data
+  // Test Call form data
   const testCallData: I_testCallBody = {
     firstName: testFirstName,
     lastName: testLastName,
@@ -257,7 +260,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       if (!files) return;
       let newFiles: UploadedFile[] = [];
 
-      // TASK2: add files first, indicating uploading status
+      // add files first, indicating uploading status
       const filesArray = Array.from(files);
       newFiles = filesArray.map((file) => ({
         name: file.name,
@@ -270,12 +273,16 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // TASK2: upload each file to the signed url
+        // upload each file to the signed url
         const ext = "." + file.name.split(".").pop()?.toLowerCase();
         if (ACCEPTED_TYPES.includes(ext)) {
           try {
             const fileUpload = await uploadFile(file);
-            console.log(fileUpload);
+            if (!uploadFile) {
+              setSaveError("Something went wrong, please try again!");
+              setToast(setIsSaveError, 2500);
+              return;
+            }
 
             const attachmentResponse = await registerAttachment(
               fileUpload.key,
@@ -283,6 +290,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
               file.size,
               file.type,
             );
+            if (!attachmentResponse) {
+              setSaveError("Something went wrong, please try again!");
+              setToast(setIsSaveError, 2500);
+              return;
+            }
             setAttachments((prev) => [...prev, attachmentResponse.id]);
 
             setUploadedFiles((prev) =>
@@ -336,10 +348,21 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     e: React.MouseEvent | null,
     toast: boolean = true,
   ) => {
-    if (!validateForm(formData, setIsFilled, setSaveError)) return "0";
+    if (!validateForm(formData, setIsFilled, setIsSaveError)) {
+      setSaveError("Please fill all the required details!");
+      return "0";
+    }
     const agentResponse = agentId
       ? await updateAgent(formData, agentId)
       : await saveAgent(formData);
+
+    console.log(agentResponse);
+
+    if (!agentResponse) {
+      setSaveError("Something went wrong, please try again!");
+      setToast(setIsSaveError, 2500);
+      return;
+    }
 
     if (toast) {
       setTestCall(false);
@@ -351,11 +374,30 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   };
 
   const handleTestCall = async () => {
-    if (!validateForm(formData, setIsFilled, setSaveError, true, testCallData))
+    // handle form validation
+    if (
+      !validateForm(formData, setIsFilled, setIsSaveError, true, testCallData)
+    ) {
+      setSaveError("Please fill all the required details!");
       return;
+    }
+
+    // if there is no agentId stored, create agent, else update agent
     if (!agentId) {
       const newAgentId = await handleSaveAgent(null, false);
+      if (!newAgentId) {
+        setSaveError("Something went wrong, please try again!");
+        setToast(setIsSaveError, 2500);
+        return;
+      }
+
       const testCallResponse = await makeTestCall(testCallData, newAgentId);
+      if (!newAgentId || !testCallResponse.success) {
+        setSaveError("Something went wrong, please try again!");
+        setToast(setIsSaveError, 2500);
+        return;
+      }
+
       if (testCallResponse.success) {
         setCallStatus(testCallResponse.status);
         setSuccessToast(false);
@@ -472,7 +514,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* // TASK: write fetched languages */}
+                      {/* // write fetched languages */}
                       {languages.map((lang) => (
                         <SelectItem key={lang.id} value={lang.code}>
                           {lang.name}
@@ -506,7 +548,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       <SelectValue placeholder="Select voice" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* // TASK: write fetched voices */}
+                      {/* // write fetched voices */}
                       {voices.map((voice) => (
                         <SelectItem key={voice.id} value={voice.id}>
                           {voice.name} <Tag tag={voice.tag} />
@@ -540,7 +582,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       <SelectValue placeholder="Select prompt" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* // TASK: write fetched prompts */}
+                      {/* // write fetched prompts */}
                       {prompts.map((prompt) => (
                         <SelectItem key={prompt.id} value={prompt.id}>
                           {prompt.name}
@@ -574,7 +616,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* // TASK: write fetched models */}
+                      {/* // write fetched models */}
                       {models.map((model) => (
                         <SelectItem key={model.id} value={model.id}>
                           {model.name}
@@ -686,7 +728,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                   multiple
                   accept={ACCEPTED_TYPES.join(",")}
                   onChange={(e) => handleFiles(e.target.files)}
-                  // TASK: each input has to be labled with Next.js, and adding title sovles the warning msg
+                  // each input has to be labled with Next.js, and adding title sovles the warning msg
                   title="hidden upload input"
                 />
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -714,7 +756,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       className="flex items-center justify-between rounded-md border px-3 py-2"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        {/* // TASK2: display checkmark if file is uploaded successfully or X mark if not */}
+                        {/* // display checkmark if file is uploaded successfully or X mark if not */}
                         {f.status === "uploading" && <Spinner />}
                         {f.status === "success" && (
                           <Check
@@ -733,7 +775,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                         <span className="text-xs text-muted-foreground shrink-0">
                           {formatFileSize(f.size)}
                         </span>
-                        {/* // TASK2: Display message for unsupported files types */}
+                        {/* // Display message for unsupported files types */}
                         {f.notAcceptedExt && (
                           <span className="ml-3 text-red-600 text-xs">
                             Unsupported File Type
@@ -918,7 +960,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       </span>
 
       <span
-        className={`${!saveError && "-translate-y-50"} flex items-center gap-3 fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium px-4 py-2 shadow-md transition ease duration-500`}
+        className={`${!isSaveError && "-translate-y-50"} flex items-center gap-3 fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium px-4 py-2 shadow-md transition ease duration-500`}
       >
         <X className="text-red-800 border border-red-800 p-0.5 rounded-4xl" />{" "}
         {saveError}

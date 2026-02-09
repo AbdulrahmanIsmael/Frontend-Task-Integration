@@ -1,5 +1,3 @@
-// TASK: create types required for task 1 api calls
-
 export interface I_languageResponse {
   id: string;
   name: string;

@@ -12,8 +12,6 @@ The repository contains the implementation of the Frontend Task Integration For 
 2. start the api server: `npm run mock-api`
 3. start the development server: `npm run dev`
 
-### Impelementation
-
 ### Steps
 
 - Task 1
@@ -41,7 +39,11 @@ The repository contains the implementation of the Frontend Task Integration For 
   2. Build the API calls functionality in `src/api/test-call.ts`
   3. Impelement checking agent saved status and sending a test call
 
-### Future Possible Improvements
+- Bonus:
+  1. Handle Form Validation
+  2. Handle loading state of dropdowns
+  3. handled errors of api calls and display messages to the user
+  4. Improvements in the UI, displaying messages for required inputs, toast messages
 
 ---
 

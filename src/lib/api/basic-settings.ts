@@ -1,4 +1,3 @@
-// TASK: task 1 api calls
 import {
   I_languageResponse,
   I_modelResponse,

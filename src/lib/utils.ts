@@ -19,7 +19,7 @@ export const setToast = (
 export const validateForm = (
   form: I_saveAgentBody,
   setErrorStatus: Dispatch<SetStateAction<I_formValidate>>,
-  setErrorMsg: Dispatch<SetStateAction<string | null>>,
+  setError: Dispatch<SetStateAction<boolean>>,
   isTestCall?: boolean,
   testCallForm?: I_testCallBody,
 ): boolean => {
@@ -39,8 +39,7 @@ export const validateForm = (
   const isValid = Object.values(errors).every((value) => Boolean(value));
 
   if (!isValid) {
-    setErrorMsg("Please fill all the required details!");
-    setTimeout(() => setErrorMsg(null), 2500);
+    setToast(setError, 2500);
   }
 
   return isValid;
