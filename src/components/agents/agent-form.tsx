@@ -46,6 +46,8 @@ import { useLanguages } from "@/hooks/use-languages";
 import { useModels } from "@/hooks/use-models";
 import { usePrompts } from "@/hooks/use-prompts";
 import { useVoices } from "@/hooks/use-voices";
+import { I_saveAgentBody } from "@/lib/types/agents";
+import { saveAgent, updateAgent } from "@/lib/api/agents";
 
 interface UploadedFile {
   name: string;
@@ -132,6 +134,7 @@ interface AgentFormProps {
 }
 
 export function AgentForm({ mode, initialData }: AgentFormProps) {
+  const [agentId, setAgentId] = useState<string | null>(null);
   // Form state — initialized from initialData when provided
   const [agentName, setAgentName] = useState(initialData?.agentName ?? "");
   const [callType, setCallType] = useState(initialData?.callType ?? "");
@@ -144,6 +147,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [description, setDescription] = useState(
     initialData?.description ?? "",
   );
+  const [attachments, setAttachments] = useState<string[]>([]);
 
   // Call Script
   const [callScript, setCallScript] = useState(initialData?.callScript ?? "");
@@ -163,6 +167,13 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testLastName, setTestLastName] = useState("");
   const [testGender, setTestGender] = useState("");
   const [testPhone, setTestPhone] = useState("");
+
+  // TASK3: Tools
+  const [allowHangUp, setAllowHangUp] = useState<boolean>(false);
+  const [allowCallback, setAllowCallback] = useState<boolean>(false);
+  const [liveTransfer, setLiveTransfer] = useState<boolean>(false);
+
+  const [successToast, setSuccessToast] = useState(false);
 
   // Task: Basic Settings
   const { languages } = useLanguages();
@@ -191,6 +202,27 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     ".xls",
   ];
 
+  // Collected form data
+  const formData: I_saveAgentBody = {
+    name: agentName,
+    description,
+    callType,
+    language,
+    voice,
+    prompt,
+    model,
+    latency: latency[0],
+    speed: speed[0],
+    callScript,
+    serviceDescription,
+    attachments,
+    tools: {
+      allowCallback,
+      allowHangUp,
+      liveTransfer,
+    },
+  };
+
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files) return;
@@ -214,14 +246,15 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
         if (ACCEPTED_TYPES.includes(ext)) {
           try {
             const fileUpload = await uploadFile(file);
+            console.log(fileUpload);
 
             const attachmentResponse = await registerAttachment(
               fileUpload.key,
               file.name,
               file.size,
               file.type,
-            ); // TASK3: id required for saving the agent options
-            console.log(attachmentResponse);
+            );
+            setAttachments((prev) => [...prev, attachmentResponse.id]);
 
             setUploadedFiles((prev) =>
               prev.map((f) =>
@@ -270,14 +303,34 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     handleFiles(e.dataTransfer.files);
   };
 
+  const handleToast = (milliseconds: number) => {
+    setSuccessToast(true);
+    setTimeout(() => setSuccessToast(false), milliseconds);
+  };
+
+  const handleSaveAgent = async () => {
+    const agentResponse = agentId
+      ? await updateAgent(formData, agentId)
+      : await saveAgent(formData);
+
+    handleToast(2500);
+
+    console.log(agentResponse);
+    console.log(agentId);
+
+    setAgentId(agentResponse.id);
+  };
+
   const heading = mode === "create" ? "Create Agent" : "Edit Agent";
   const saveLabel = mode === "create" ? "Save Agent" : "Save Changes";
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="relative flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{heading}</h1>
-        <Button>{saveLabel}</Button>
+        <Button onClick={handleSaveAgent} className="cursor-pointer">
+          {saveLabel}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -593,7 +646,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       call
                     </FieldDescription>
                   </FieldContent>
-                  <Switch id="switch-hangup" />
+                  <Switch
+                    id="switch-hangup"
+                    checked={allowHangUp}
+                    onCheckedChange={() => setAllowHangUp((prev) => !prev)}
+                  />
                 </Field>
               </FieldLabel>
               <FieldLabel htmlFor="switch-callback">
@@ -605,7 +662,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       callbacks
                     </FieldDescription>
                   </FieldContent>
-                  <Switch id="switch-callback" />
+                  <Switch
+                    id="switch-callback"
+                    checked={allowCallback}
+                    onCheckedChange={() => setAllowCallback((prev) => !prev)}
+                  />
                 </Field>
               </FieldLabel>
               <FieldLabel htmlFor="switch-transfer">
@@ -616,7 +677,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                       Select if you want to transfer the call to a human agent
                     </FieldDescription>
                   </FieldContent>
-                  <Switch id="switch-transfer" />
+                  <Switch
+                    id="switch-transfer"
+                    checked={liveTransfer}
+                    onCheckedChange={() => setLiveTransfer((prev) => !prev)}
+                  />
                 </Field>
               </FieldLabel>
             </FieldGroup>
@@ -699,9 +764,18 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       {/* Sticky bottom save bar */}
       <div className="sticky bottom-0 -mx-6 -mb-6 border-t bg-background px-6 py-4">
         <div className="flex justify-end">
-          <Button>{saveLabel}</Button>
+          <Button onClick={handleSaveAgent} className="cursor-pointer">
+            {saveLabel}
+          </Button>
         </div>
       </div>
+
+      <span
+        className={`${!successToast && "-translate-y-50"} flex items-center gap-3 fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-green-50 border border-green-200 text-green-700 rounded-lg font-medium px-4 py-2 shadow-md transition ease duration-500`}
+      >
+        <Check className="text-green-800 border border-green-800 p-0.5 rounded-4xl" />{" "}
+        Agent Saved Successfully
+      </span>
     </div>
   );
 }

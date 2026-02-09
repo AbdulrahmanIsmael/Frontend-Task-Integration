@@ -31,6 +31,9 @@ The repository contains the implementation of the Frontend Task Integration For 
      1. add the files first indicating the uploading status then uploading the file and modifying the status with success or fail
      2. handling uploading unsupported file type, and displaying error message
 
+- Task 3
+  1. Prepare API calls Typescript types/interfaces `src/types/agent.ts`
+
 ### Future Possible Improvements
 
 ---

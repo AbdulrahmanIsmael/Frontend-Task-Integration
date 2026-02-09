@@ -4,40 +4,25 @@ import {
   I_signedURLResponse,
   I_uploadFileResponse,
 } from "../types/attachements";
+import { postData, putFile } from "@/lib/api/client";
 
 async function getSignedURL(): Promise<I_signedURLResponse> {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/attachments/upload-url`,
-    {
-      method: "POST",
-    },
+  const response = await postData<I_signedURLResponse>(
+    "attachments/upload-url",
   );
 
-  if (!response.ok) {
-    throw new Error("Something went wrong, please request a new signed url!");
-  }
-
-  return response.json();
+  return response;
 }
 
 export async function uploadFile(file: File): Promise<I_uploadFileResponse> {
   const signedUrl = await getSignedURL();
 
-  const response = await fetch(`${signedUrl.signedUrl}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/octet-stream",
-    },
-    body: file,
-  });
+  const response = await putFile<I_uploadFileResponse>(
+    signedUrl.signedUrl,
+    file,
+  );
 
-  if (!response.ok) {
-    throw new Error(
-      "Something went wrong when uploading the file, please try again later!",
-    );
-  }
-
-  return response.json();
+  return response;
 }
 
 export async function registerAttachment(
@@ -53,16 +38,10 @@ export async function registerAttachment(
     mimeType: fileType,
   };
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/attachments`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
+  const response = await postData<I_registerAttachmentResponse>(
+    "attachments",
+    body,
   );
 
-  return response.json();
+  return response;
 }
